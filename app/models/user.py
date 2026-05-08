@@ -49,11 +49,6 @@ class User(Base):
         foreign_keys="Listing.sender_id",
         back_populates="sender",
     )
-    received_listings: Mapped[list["Listing"]] = relationship(
-        "Listing",
-        foreign_keys="Listing.receiver_id",
-        back_populates="receiver",
-    )
     delivered_listings: Mapped[list["Listing"]] = relationship(
         "Listing",
         foreign_keys="Listing.delivery_guy_id",

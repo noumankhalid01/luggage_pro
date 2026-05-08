@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DECIMAL, Enum as SAEnum, ForeignKey, Text, TIMESTAMP, func
+from sqlalchemy import DECIMAL, Enum as SAEnum, ForeignKey, Text, TIMESTAMP, func, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -20,7 +20,7 @@ class Listing(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    receiver_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    receiver_phone: Mapped[str] = mapped_column(String(15), nullable=False)
     delivery_guy_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
@@ -61,11 +61,6 @@ class Listing(Base):
         "User",
         foreign_keys=[sender_id],
         back_populates="sent_listings",
-    )
-    receiver: Mapped["User"] = relationship(
-        "User",
-        foreign_keys=[receiver_id],
-        back_populates="received_listings",
     )
     delivery_guy: Mapped["User | None"] = relationship(
         "User",
