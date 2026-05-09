@@ -1,10 +1,14 @@
-from unicodedata import name
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.listing import Listing
 from app.models.user import User
-from app.schemas.listings import CreateListingRequest, CreateListingResponse
+from app.schemas.listings import (
+    CreateListingRequest,
+    CreateListingResponse,
+    GetListingsResponse,
+)
 from app.utils.maps import get_distance_km
 from app.utils.calculate_fare import calculate_fare
 
@@ -24,7 +28,6 @@ class ListingService:
                 listing_data.dest_lng,
             )
             offered_fare = calculate_fare(distance_km, listing_data.weight_kg)
-
 
             new_listing = Listing(
                 sender_id=current_user.id,
@@ -66,6 +69,60 @@ class ListingService:
                 updated_at=new_listing.updated_at,
             )
 
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e),
+            )
+
+    async def get_listings(
+        self,
+        origin: str | None,
+        dest: str | None,
+        min_fare: float | None,
+        max_fare: float | None,
+        min_weight: float | None,
+        max_weight: float | None,
+        distance_range_km: float | None,
+        order_by: int | None,
+        db: AsyncSession,
+    ) -> list[GetListingsResponse]:
+        try:
+
+            query = select(Listing).where(Listing.status == "open")
+
+            if origin:
+                query = query.where(Listing.origin_address.ilike(f"%{origin}%"))
+            if dest:
+                query = query.where(Listing.dest_address.ilike(f"%{dest}%"))
+            if min_fare:
+                query = query.where(Listing.offered_fare >= min_fare)
+            if max_fare:
+                query = query.where(Listing.offered_fare <= max_fare)
+            if min_weight:
+                query = query.where(Listing.weight_kg >= min_weight)
+            if max_weight:
+                query = query.where(Listing.weight_kg <= max_weight)
+            if distance_range_km:
+                query = query.where(Listing.distance_km <= distance_range_km)
+            if order_by:
+                if order_by == 1:
+                    query = query.order_by(Listing.created_at.asc())
+                elif order_by == 0:
+                    query = query.order_by(Listing.created_at.desc())
+
+            result = await db.execute(query)
+            listings = result.scalars().all()
+
+            if len(listings) == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="No job found matching the criteria",
+                )
+
+            return [GetListingsResponse.from_orm(listing) for listing in listings]
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

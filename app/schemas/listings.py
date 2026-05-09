@@ -38,3 +38,26 @@ class CreateListingResponse(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+class GetListingsResponse(BaseModel):
+    id: int
+    sender_id: int
+    name: str
+    receiver_phone: str
+    delivery_guy_id: int | None
+    origin_address: str
+    origin_lat: float
+    origin_lng: float
+    dest_address: str
+    dest_lat: float
+    dest_lng: float
+    distance_km: float
+    weight_kg: float
+    description: str
+    offered_fare: float
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
