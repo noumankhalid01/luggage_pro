@@ -4,7 +4,7 @@ from sqlalchemy import select, or_
 
 from app.models.user import User
 from app.core.security import hash_password
-from app.schemas.users import CreateUserRequest, CreateUserResponse
+from app.schemas.users import CreateUserRequest, CreateUserResponse, UpdateMeRequest, UpdateMeResponse
 
 class UserService:
 
@@ -44,6 +44,65 @@ class UserService:
             )
         except HTTPException:
             raise 
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e),
+            )
+
+    async def update_me(
+        self,
+        current_user: User,
+        user_data: UpdateMeRequest,
+        db: AsyncSession,
+    ) -> UpdateMeResponse:
+        try:
+            updates = user_data.model_dump(exclude_unset=True)
+
+            if not updates:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="At least one field must be provided",
+                )
+
+            duplicate_conditions = []
+            if "email" in updates:
+                duplicate_conditions.append(User.email == updates["email"])
+            if "phone" in updates:
+                duplicate_conditions.append(User.phone == updates["phone"])
+
+            if duplicate_conditions:
+                duplicate_stmt = select(User).where(
+                    or_(*duplicate_conditions),
+                    User.id != current_user.id,
+                )
+                duplicate = await db.scalar(duplicate_stmt)
+                if duplicate:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Email or phone already registered",
+                    )
+
+            if "full_name" in updates:
+                current_user.full_name = updates["full_name"].lower()
+            if "email" in updates:
+                current_user.email = updates["email"]
+            if "phone" in updates:
+                current_user.phone = updates["phone"]
+
+            await db.commit()
+            await db.refresh(current_user)
+
+            return UpdateMeResponse(
+                id=current_user.id,
+                full_name=current_user.full_name,
+                email=current_user.email,
+                phone=current_user.phone,
+                cnic_image_url=current_user.cnic_image_url,
+                status=current_user.status.value,
+            )
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

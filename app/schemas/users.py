@@ -15,3 +15,16 @@ class CreateUserResponse(BaseModel):
     phone: str
     cnic_image_url: str
     status: str
+
+class UpdateMeRequest(BaseModel):
+    full_name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+
+class UpdateMeResponse(BaseModel):
+    id: int
+    full_name: str
+    email: EmailStr
+    phone: str
+    cnic_image_url: str
+    status: str
