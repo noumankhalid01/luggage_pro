@@ -25,6 +25,7 @@ class Listing(Base):
         ForeignKey("users.id"),
         nullable=True,
     )
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
     origin_address: Mapped[str] = mapped_column(Text, nullable=False)
     origin_lat: Mapped[float] = mapped_column(DECIMAL(9, 6), nullable=False)
     origin_lng: Mapped[float] = mapped_column(DECIMAL(9, 6), nullable=False)
