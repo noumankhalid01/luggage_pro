@@ -12,7 +12,5 @@ def get_distance_km(origin_lat: float, origin_lng: float, dest_lat: float, dest_
         destinations=[(dest_lat, dest_lng)],
         mode="driving"
     )
-    km_res = result["rows"][0]["elements"][0]["distance"]["text"]
-    km = km_res.split()[0]
-    
-    return float(km)
+    metres = result["rows"][0]["elements"][0]["distance"]["value"]
+    return round(metres / 1000, 2)
