@@ -14,5 +14,4 @@ class CreateUserResponse(BaseModel):
     email: EmailStr
     phone: str
     cnic_image_url: str
-    fcm_token: str
     status: str
