@@ -17,13 +17,13 @@ class ListingService:
         db: AsyncSession,
     ) -> CreateListingResponse:
         try:
-            distance_km = await get_distance_km(
+            distance_km = get_distance_km(
                 listing_data.origin_lat,
                 listing_data.origin_lng,
                 listing_data.dest_lat,
                 listing_data.dest_lng,
             )
-            offered_fare = await calculate_fare(distance_km, listing_data.weight_kg)
+            offered_fare = calculate_fare(distance_km, listing_data.weight_kg)
 
 
             new_listing = Listing(

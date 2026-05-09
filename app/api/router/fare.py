@@ -13,8 +13,8 @@ async def calculate_fare_endpoint(
     user = Depends(get_current_user)
 ):
     try:
-        distance_km = await get_distance_km(request.origin_lat, request.origin_lng, request.dest_lat, request.dest_lng)
-        fare = await calculate_fare(distance_km, request.weight_kg)
+        distance_km = get_distance_km(request.origin_lat, request.origin_lng, request.dest_lat, request.dest_lng)
+        fare = calculate_fare(distance_km, request.weight_kg)
         return CalculateFareResponse(fare=fare)
     except Exception as e:
         raise HTTPException(
