@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.connection import get_session
 from app.core.current_user import get_current_user
 from app.models.user import User
-from app.schemas.interests import InterestRequest, InterestResponse
+from app.schemas.interests import InterestRequest, InterestResponse, InterestedDeliveryGuyResponse
 from app.services.interest_service import InterestService
 
 router = APIRouter()
@@ -17,3 +17,12 @@ async def express_interest(
 ) -> InterestResponse:
     service = InterestService()
     return await service.express_interest(interest_request.listing_id, user.id, db)
+
+@router.get("/interests", response_model=list[InterestedDeliveryGuyResponse])
+async def get_interests(
+    listing_id: int,
+    db: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> list[InterestedDeliveryGuyResponse]:
+    service = InterestService()
+    return await service.get_interests(user.id, listing_id, db)

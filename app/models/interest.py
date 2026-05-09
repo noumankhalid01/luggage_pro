@@ -19,9 +19,13 @@ class InterestStatus(str, Enum):
 class Interest(Base):
     __tablename__ = "interests"
 
+    __table_args__ = (
+        UniqueConstraint("listing_id", "delivery_guy_id", name="uq_interest_listing_user"),
+    )
+    
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id"), nullable=False, unique=True)
-    delivery_guy_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, unique=True)
+    listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id"), nullable=False)
+    delivery_guy_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     status: Mapped[InterestStatus] = mapped_column(
         SAEnum(
             InterestStatus,
