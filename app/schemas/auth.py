@@ -17,3 +17,10 @@ class LoginResponse(BaseModel):
     cnic_image_url: str
     status: str
     jwt: JWTToken
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+class RefreshTokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str

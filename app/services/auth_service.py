@@ -3,8 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.core.security import verify_password, create_access_token, create_refresh_token
-from app.schemas.auth import LoginRequest, LoginResponse, JWTToken
+from app.core.security import verify_password, create_access_token, create_refresh_token, decode_token
+from app.schemas.auth import LoginRequest, LoginResponse, JWTToken, RefreshTokenRequest, RefreshTokenResponse
 
 class AuthService:
     async def login(self, user_login: LoginRequest, db: AsyncSession) -> LoginResponse:
@@ -33,6 +33,32 @@ class AuthService:
                 cnic_image_url=user.cnic_image_url,
                 status=user.status,
                 jwt=JWTToken(access_token=access_token, refresh_token=refresh_token)
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e),
+            )
+
+    async def refresh_token(self, refresh_token: RefreshTokenRequest, db: AsyncSession) -> RefreshTokenResponse:
+        try:
+            user_id = decode_token(refresh_token.refresh_token, token_type="refresh")
+            user = await db.get(User, user_id)
+
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found",
+                )
+            
+            new_access_token = create_access_token(user.id)
+            new_refresh_token = create_refresh_token(user.id)
+
+            return RefreshTokenResponse(
+                access_token=new_access_token,
+                refresh_token=new_refresh_token
             )
         except HTTPException:
             raise
