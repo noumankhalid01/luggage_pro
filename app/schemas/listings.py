@@ -53,7 +53,7 @@ class GetListingsResponse(BaseModel):
     dest_lng: float
     distance_km: float
     weight_kg: float
-    description: str
+    description: str | None
     offered_fare: float
     status: str
     created_at: datetime
@@ -61,3 +61,10 @@ class GetListingsResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CloseListingRequest(BaseModel):
+    id: int
+
+class CloseListingResponse(BaseModel):
+    id: int
+    status: str

@@ -7,7 +7,7 @@ from app.core.current_user import get_current_user
 
 router = APIRouter()
 
-@router.post("/calculate_fare", response_model=CalculateFareResponse)
+@router.post("/calculate", response_model=CalculateFareResponse)
 async def calculate_fare_endpoint(
     request: CalculateFareRequest,
     user = Depends(get_current_user)

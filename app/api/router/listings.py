@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.current_user import get_current_user
 from app.database.connection import get_session
 from app.models.user import User
-from app.schemas.listings import CreateListingRequest, CreateListingResponse, GetListingsResponse
+from app.schemas.listings import CreateListingRequest, CreateListingResponse, GetListingsResponse, CloseListingRequest, CloseListingResponse
 from app.services.listings_service import ListingService
 
 router = APIRouter()
@@ -35,6 +35,26 @@ async def get_listings(
     distance_range_km: float | None = None,
     order_by: ListingOrderBy | None = None,
     db: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> list[GetListingsResponse]:
     service = ListingService()
     return await service.get_listings(origin, dest, min_fare, max_fare, min_weight, max_weight, distance_range_km, order_by, db)
+
+
+@router.get("/data/{id}", response_model=GetListingsResponse)
+async def get_listing_by_id(
+    id: int,
+    db: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> GetListingsResponse:
+    service = ListingService()
+    return await service.get_listing_by_id(id, db)
+
+@router.post("/close", response_model=CloseListingResponse)
+async def close_listing(
+    listing_id: CloseListingRequest,
+    db: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> CloseListingResponse:
+    service = ListingService()
+    return await service.close_listing(user.id, listing_id.id, db)

@@ -8,6 +8,7 @@ from app.schemas.listings import (
     CreateListingRequest,
     CreateListingResponse,
     GetListingsResponse,
+    CloseListingResponse,
 )
 from app.utils.maps import get_distance_km
 from app.utils.calculate_fare import calculate_fare
@@ -121,6 +122,62 @@ class ListingService:
                 )
 
             return [GetListingsResponse.from_orm(listing) for listing in listings]
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e),
+            )
+
+    async def get_listing_by_id(self, listing_id: int, db: AsyncSession) -> Listing:
+        try:
+            listing = await db.get(Listing, listing_id)
+
+            if not listing:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Listing not found",
+                )
+
+            return listing
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e),
+            )
+
+    async def close_listing(self, sender_id: int, listing_id: int, db: AsyncSession):
+        try:
+            listing = await db.get(Listing, listing_id)
+
+            if not listing:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Listing not found",
+                )
+
+            if listing.sender_id != sender_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not authorized to close this listing",
+                )
+            
+            if listing.status != "open":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This job cannot be closed.",
+                )
+
+            listing.status = "closed"
+            await db.commit()
+
+            return CloseListingResponse(
+                id=listing.id,
+                status=listing.status
+            )
         except HTTPException:
             raise
         except Exception as e:
