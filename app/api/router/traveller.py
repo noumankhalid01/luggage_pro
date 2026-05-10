@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.connection import get_session
 from app.core.current_user import get_current_user
 from app.models.user import User
-from app.schemas.interests import InterestRequest, InterestResponse, InterestedDeliveryGuyResponse
+from app.schemas.interests import InterestRequest, InterestResponse, WithdrawInterestRequest, WithdrawInterestResponse 
 from app.services.interest_service import InterestService
 
 router = APIRouter()
@@ -18,11 +18,12 @@ async def express_interest(
     service = InterestService()
     return await service.express_interest(interest_request.listing_id, user.id, db)
 
-@router.get("/interests", response_model=list[InterestedDeliveryGuyResponse])
-async def get_interests(
-    listing_id: int,
+
+@router.post("/interest/traveller/withdraw", response_model=WithdrawInterestResponse)
+async def withdraw_interest(
+    payload: WithdrawInterestRequest,
     db: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
-) -> list[InterestedDeliveryGuyResponse]:
+) -> WithdrawInterestResponse:
     service = InterestService()
-    return await service.get_interests(user.id, listing_id, db)
+    return await service.withdraw_interest_traveller(payload.interest_id, user.id, db)

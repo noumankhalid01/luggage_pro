@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.schemas.interests import InterestResponse, InterestedDeliveryGuyResponse
+from app.schemas.interests import InterestResponse, InterestedDeliveryGuyResponse, SelectInterestResponse, WithdrawInterestResponse
 from app.models.interest import Interest
 from app.models.listing import Listing
 
@@ -90,17 +90,156 @@ class InterestService:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="No delivery guys have expressed interest in this listing yet.",
                 )
-                
+
             return [
                 InterestedDeliveryGuyResponse(
-                    id=interest.delivery_guy.id,
+                    interest_id=interest.id,
+                    delivery_guy_id=interest.delivery_guy.id,
                     full_name=interest.delivery_guy.full_name,
                     email=interest.delivery_guy.email,
                     phone=interest.delivery_guy.phone,
+                    status=interest.status.value,
                 )
                 for interest in listing.interests
                 if interest.status == "interested"
             ]
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            )
+
+    async def select_delivery_guy(self, interest_id: int, sender_id: int, db: AsyncSession) -> SelectInterestResponse:
+        try:
+            result = await db.execute(
+                select(Interest)
+                .options(selectinload(Interest.listing))
+                .where(Interest.id == interest_id)
+            )
+            interest = result.scalar_one_or_none()
+
+            if not interest:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Interest not found.",
+                )
+            if interest.listing.sender_id != sender_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not authorized to select a delivery guy for this listing.",
+                )
+            if interest.status != "interested":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This interest cannot be selected.",
+                )
+
+            if interest.listing.status != "open":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="You have already selected a delivery guy for this listing.",
+                )
+
+            interest.status = "selected"
+            interest.listing.status = "pending"
+            interest.listing.delivery_guy_id = interest.delivery_guy_id
+
+            await db.commit()
+            await db.refresh(interest)
+
+            return SelectInterestResponse(
+                interest_id=interest.id,
+                listing_id=interest.listing_id,
+                delivery_guy_id=interest.delivery_guy_id,
+                status=interest.status.value,
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            )
+
+    async def withdraw_interest_traveller(self, interest_id: int, delivery_guy_id: int, db: AsyncSession) -> WithdrawInterestResponse:
+        try:
+            result = await db.execute(
+                select(Interest)
+                .options(selectinload(Interest.listing))
+                .where(Interest.id == interest_id)
+            )
+            interest = result.scalar_one_or_none()
+
+            if not interest:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Interest not found.",
+                )
+            if interest.delivery_guy_id != delivery_guy_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not authorized to withdraw this interest.",
+                )
+
+            if interest.status == "selected" and interest.listing.status != "pending":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="You cannot withdraw this job.",
+                )
+
+            if interest.listing.delivery_guy_id == delivery_guy_id:
+                interest.listing.status = "open"
+                interest.listing.delivery_guy_id = None
+            
+            interest.status = "withdrawn"
+            await db.commit()
+
+            return WithdrawInterestResponse(success=True)
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            )
+
+    async def withdraw_interest_sender(self, interest_id: int, sender_id: int, db: AsyncSession) -> WithdrawInterestResponse:
+        try:
+            result = await db.execute(
+                select(Interest)
+                .options(selectinload(Interest.listing))
+                .where(Interest.id == interest_id)
+            )
+            interest = result.scalar_one_or_none()
+
+            if not interest:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Interest not found.",
+                )
+            if interest.listing.sender_id != sender_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not authorized to withdraw this interest.",
+                )
+            if interest.status == "selected" and interest.listing.status != "pending":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="You cannot withdraw this job.",
+                )
+
+            if interest.status == "selected" and interest.listing.status == "pending":
+                interest.status = "withdrawn"
+                interest.listing.delivery_guy_id = None
+                interest.listing.status = "open"
+            else:
+                interest.status = "withdrawn"
+            
+            await db.commit()
+
+            return WithdrawInterestResponse(success=True)
 
         except HTTPException:
             raise
