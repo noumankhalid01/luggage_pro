@@ -86,9 +86,15 @@ class ListingService:
         max_weight: float | None,
         distance_range_km: float | None,
         order_by: int | None,
+        page: int,
         db: AsyncSession,
     ) -> list[GetListingsResponse]:
         try:
+            if page < 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="page must be greater than or equal to 1",
+                )
 
             query = select(Listing).where(Listing.status == "open")
 
@@ -112,7 +118,9 @@ class ListingService:
                 elif order_by == 0:
                     query = query.order_by(Listing.created_at.desc())
 
-            result = await db.execute(query)
+            result = await db.execute(
+                query.offset((page - 1) * 20).limit(20)
+            )
             listings = result.scalars().all()
 
             if len(listings) == 0:

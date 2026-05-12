@@ -34,11 +34,23 @@ async def get_listings(
     max_weight: float | None = None,
     distance_range_km: float | None = None,
     order_by: ListingOrderBy | None = None,
+    page: int = 1,
     db: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ) -> list[GetListingsResponse]:
     service = ListingService()
-    return await service.get_listings(origin, dest, min_fare, max_fare, min_weight, max_weight, distance_range_km, order_by, db)
+    return await service.get_listings(
+        origin,
+        dest,
+        min_fare,
+        max_fare,
+        min_weight,
+        max_weight,
+        distance_range_km,
+        order_by,
+        page,
+        db,
+    )
 
 
 @router.get("/data/{id}", response_model=GetListingsResponse)
