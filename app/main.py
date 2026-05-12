@@ -5,9 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import router
 from app.database.connection import engine
 
+from app.core.firebase import init_firebase
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_firebase()
     yield
     await engine.dispose()
 
