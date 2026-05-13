@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.listing import Listing
 from app.models.listing_image import ListingImage
@@ -123,6 +124,7 @@ class ListingService:
                 )
 
             query = select(Listing).where(Listing.status == "open")
+            query = query.options(selectinload(Listing.images))
 
             if origin:
                 query = query.where(Listing.origin_address.ilike(f"%{origin}%"))
@@ -155,7 +157,30 @@ class ListingService:
                     detail="No job found matching the criteria",
                 )
 
-            return [GetListingsResponse.from_orm(listing) for listing in listings]
+            return [
+                GetListingsResponse(
+                    id=listing.id,
+                    sender_id=listing.sender_id,
+                    name=listing.name,
+                    receiver_phone=listing.receiver_phone,
+                    image_urls=[image.image_url for image in listing.images],
+                    delivery_guy_id=listing.delivery_guy_id,
+                    origin_address=listing.origin_address,
+                    origin_lat=listing.origin_lat,
+                    origin_lng=listing.origin_lng,
+                    dest_address=listing.dest_address,
+                    dest_lat=listing.dest_lat,
+                    dest_lng=listing.dest_lng,
+                    distance_km=listing.distance_km,
+                    weight_kg=listing.weight_kg,
+                    description=listing.description,
+                    offered_fare=listing.offered_fare,
+                    status=listing.status.value,
+                    created_at=listing.created_at,
+                    updated_at=listing.updated_at,
+                )
+                for listing in listings
+            ]
         except HTTPException:
             raise
         except Exception as e:
@@ -166,7 +191,12 @@ class ListingService:
 
     async def get_listing_by_id(self, listing_id: int, db: AsyncSession) -> Listing:
         try:
-            listing = await db.get(Listing, listing_id)
+            result = await db.execute(
+                select(Listing)
+                .options(selectinload(Listing.images))
+                .where(Listing.id == listing_id)
+            )
+            listing = result.scalar_one_or_none()
 
             if not listing:
                 raise HTTPException(
@@ -174,7 +204,27 @@ class ListingService:
                     detail="Listing not found",
                 )
 
-            return listing
+            return GetListingsResponse(
+                id=listing.id,
+                sender_id=listing.sender_id,
+                name=listing.name,
+                receiver_phone=listing.receiver_phone,
+                image_urls=[image.image_url for image in listing.images],
+                delivery_guy_id=listing.delivery_guy_id,
+                origin_address=listing.origin_address,
+                origin_lat=listing.origin_lat,
+                origin_lng=listing.origin_lng,
+                dest_address=listing.dest_address,
+                dest_lat=listing.dest_lat,
+                dest_lng=listing.dest_lng,
+                distance_km=listing.distance_km,
+                weight_kg=listing.weight_kg,
+                description=listing.description,
+                offered_fare=listing.offered_fare,
+                status=listing.status.value,
+                created_at=listing.created_at,
+                updated_at=listing.updated_at,
+            )
         except HTTPException:
             raise
         except Exception as e:

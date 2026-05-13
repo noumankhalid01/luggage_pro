@@ -45,6 +45,7 @@ class GetListingsResponse(BaseModel):
     sender_id: int
     name: str
     receiver_phone: str
+    image_urls: list[str]
     delivery_guy_id: int | None
     origin_address: str
     origin_lat: float
