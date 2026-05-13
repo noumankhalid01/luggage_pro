@@ -10,7 +10,7 @@ from app.models.listing import Listing, ListingStatus
 from app.models.otp_event import OtpEvent, OtpType
 from app.models.user import User
 from app.schemas.notifications import Notification
-from app.schemas.otp_events import SendOtpRequest, SendOtpResponse
+from app.schemas.otp_events import SendOtpRequest, SendOtpResponse, VerifyOtpRequest, VerifyOtpResponse
 from app.utils.notifications import send_push_notification
 
 
@@ -106,7 +106,6 @@ class OtpService:
                     "listing_id": str(listing.id),
                     "otp_type": payload.otp_type.value,
                     "otp_code": otp_code,
-                    "resend": str(payload.resend).lower(),
                 },
             )
 
@@ -127,6 +126,100 @@ class OtpService:
                 listing_id=listing.id,
                 otp_type=payload.otp_type,
                 expires_at=otp_event.expires_at,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e),
+            )
+
+    async def verify_otp(
+        self,
+        payload: VerifyOtpRequest,
+        current_user: User,
+        db: AsyncSession,
+    ) -> VerifyOtpResponse:
+        try:
+            now = datetime.now(timezone.utc)
+            listing = None
+
+            if payload.otp_type != OtpType.reset_password:
+                if payload.listing_id is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="listing_id is required for listing OTP verification.",
+                    )
+
+                listing = await db.get(Listing, payload.listing_id)
+                if not listing:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Listing not found",
+                    )
+
+            if payload.otp_type == OtpType.pickup:
+                if listing.sender_id != current_user.id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You are not authorized to verify this OTP.",
+                    )
+                if listing.status != ListingStatus.pending:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Pickup OTP can only be verified for a pending listing.",
+                    )
+
+            elif payload.otp_type == OtpType.delivery:
+                if listing.delivery_guy_id != current_user.id:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You are not authorized to verify this OTP.",
+                    )
+                if listing.status != ListingStatus.in_transit:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Delivery OTP can only be verified for an in-transit listing.",
+                    )
+
+            otp_event_stmt = select(OtpEvent).where(
+                OtpEvent.otp_type == payload.otp_type,
+                OtpEvent.otp_hash == payload.otp_code,
+                OtpEvent.used == False,
+                OtpEvent.expires_at > now,
+            )
+            if payload.listing_id is not None:
+                otp_event_stmt = otp_event_stmt.where(OtpEvent.listing_id == payload.listing_id)
+
+            otp_event = await db.scalar(otp_event_stmt.order_by(OtpEvent.id.desc()))
+            if not otp_event:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid or expired OTP.",
+                )
+
+            otp_event.used = True
+
+            listing_status = None
+            if payload.otp_type == OtpType.pickup:
+                listing.status = ListingStatus.in_transit
+                listing_status = listing.status.value
+            elif payload.otp_type == OtpType.delivery:
+                listing.status = ListingStatus.delivered
+                listing_status = listing.status.value
+            elif payload.otp_type == OtpType.reset_password:
+                listing_status = None
+
+            await db.commit()
+            await db.refresh(otp_event)
+
+            return VerifyOtpResponse(
+                message="OTP verified successfully.",
+                otp_event_id=otp_event.id,
+                otp_type=payload.otp_type,
+                listing_id=otp_event.listing_id if payload.otp_type != OtpType.reset_password else None,
+                listing_status=listing_status,
             )
         except HTTPException:
             raise
