@@ -1,7 +1,7 @@
 from dis import dis
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CreateListingRequest(BaseModel):
@@ -17,6 +17,7 @@ class CreateListingRequest(BaseModel):
     weight_kg: float
     description: str | None = None
     offered_fare: float
+    image_urls: list[str] = Field(min_length=1, max_length=3)
 
 
 class CreateListingResponse(BaseModel):

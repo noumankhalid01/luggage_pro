@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.listing import Listing
+from app.models.listing_image import ListingImage
 from app.models.user import User
 from app.schemas.listings import (
     CreateListingRequest,
@@ -22,6 +23,18 @@ class ListingService:
         db: AsyncSession,
     ) -> CreateListingResponse:
         try:
+            if not listing_data.image_urls:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="At least one image is required.",
+                )
+
+            if len(listing_data.image_urls) > 3:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A listing can have at most 3 images.",
+                )
+
             distance_km = get_distance_km(
                 listing_data.origin_lat,
                 listing_data.origin_lng,
@@ -46,6 +59,17 @@ class ListingService:
                 name=listing_data.name.lower(),
             )
             db.add(new_listing)
+
+            await db.flush()
+
+            if listing_data.image_urls:
+                db.add_all(
+                    [
+                        ListingImage(listing_id=new_listing.id, image_url=image_url)
+                        for image_url in listing_data.image_urls
+                    ]
+                )
+
             await db.commit()
             await db.refresh(new_listing)
 
@@ -70,6 +94,8 @@ class ListingService:
                 updated_at=new_listing.updated_at,
             )
 
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
