@@ -12,6 +12,7 @@ from app.database.base import Base
 class OtpType(str, Enum):
     pickup = "pickup"
     delivery = "delivery"
+    reset_password = "reset_password"
 
 
 class OtpEvent(Base):
